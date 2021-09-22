@@ -11,9 +11,11 @@ const app = express()
 const urlDbConnect = process.env.db
 console.log(process.env.db);
 
-mongoose.connect(urlDbConnect, { useNewUrlParser: true, useUnifiedTopology: true },err =>{
-    if(err) throw err
-    console.log("database connected!")
+mongoose.connect(urlDbConnect, { useNewUrlParser: true, useUnifiedTopology: true },error =>{
+    if(error){
+        throw error
+    }
+    console.log("Mongodb connected!")
 })
 
 
