@@ -10,9 +10,6 @@ const Schema = mongoose.Schema
         return `https://www.gravatar.com/avatar/${this._id}?s=32&d=identicon&r=PG`
     }}
 
-    
  })
     
-console.log(userModel.path('_id'));
-
-const user = mongoose.model('user', userModel)
+module.exports = mongoose.model('user', userModel)
