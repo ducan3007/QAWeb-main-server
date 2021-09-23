@@ -8,7 +8,12 @@ body {
     padding-top: 56px;
   }
 }
-
+.navbar{
+  font-size: 1.2rem;
+}
+.navbar-brand{
+  font-size: 1.2rem;
+}
 .carousel-item {
   height: 65vh;
   min-height: 300px;
