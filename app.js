@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
-const userRouter = require('./routes/main');
+const routes = require('./routes/main');
 const { isBuffer } = require('util');
 const app = express()
 
@@ -27,7 +27,7 @@ app.set('view engine', 'ejs')
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms'))
 //Static file public to client
 app.use(express.static(path.join(__dirname,'public')))
-app.use(userRouter)
+app.use(routes)
 
 
 
