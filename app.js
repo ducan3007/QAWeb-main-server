@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
-const routes = require('./routes/main');
+const routers = require('./routes/main');
 const { isBuffer } = require('util');
 const app = express()
 
@@ -13,7 +13,7 @@ console.log(process.env.db);
 
 mongoose.connect(urlDbConnect, { useNewUrlParser: true, useUnifiedTopology: true },error =>{
     if(error){
-        throw error
+        throw error;
     }
     console.log("Mongodb connected!")
 })
@@ -24,10 +24,17 @@ mongoose.connect(urlDbConnect, { useNewUrlParser: true, useUnifiedTopology: true
 app.set('views', path.join(__dirname,'views'))
 app.set('view engine', 'ejs')
 // logger
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms'))
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
 //Static file public to client
-app.use(express.static(path.join(__dirname,'public')))
-app.use(routes)
+app.use(express.static(path.join(__dirname,'public')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
+
+
+
+app.use(routers);
 
 
 
