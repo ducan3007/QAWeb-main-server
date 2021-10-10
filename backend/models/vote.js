@@ -8,8 +8,10 @@ const voteSchema = new Schema({
   },
   vote: {
     type: Number,
-    default: 0
+    required:false
   }
+},{
+  _id:false
 });
 
 module.exports = voteSchema

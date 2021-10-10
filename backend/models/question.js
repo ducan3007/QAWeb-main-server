@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const commentSchema = require('./comment');
-const answerSchema = require('./answer');
+const answerSchema = require('./answers');
 const votes = require('./vote');
 
 const questionModel = new Schema({
@@ -10,14 +10,20 @@ const questionModel = new Schema({
         type: String,
         required: true
     },
-    text: {
+    author: {
+        type:Schema.Types.ObjectId,
+        ref:'user',
+        required:true
+        
+    },
+    content: {
         type: String,
         required: true
     },
-    author: {
-        type: Schema.Types.ObjectId,
+    votes: {
+        type: Number,
+        default:0
     },
-    votes: [votes],
     comments: [commentSchema],
     answers: [answerSchema],
     tags: [{
@@ -33,4 +39,5 @@ const questionModel = new Schema({
         default: Date.now
     }
 })
-module.exports = mongoose.model('user', questionModel);
+
+module.exports = mongoose.model('questions', questionModel);
