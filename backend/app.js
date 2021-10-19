@@ -1,16 +1,19 @@
-require('dotenv').config()
-const path = require('path');
-const express = require('express');
+const bodyParser = require('body-parser');
 const morgan = require('morgan');
-const mongoose = require('mongoose');
-const routers = require('./routes/main');
-const { isBuffer } = require('util');
-const app = express()
+const helmet = require('helmet');
+const mongoose = require('mongoose')
+const cors = require('cors');
+const compression = require('compression');
+const path = require('path');
+const http = require('http');
+const express = require('express');
 
+const routers = require('./routes/routes');
+
+require('dotenv').config()
+const app = express();
 
 const urlDbConnect = process.env.db
-console.log(process.env.db);
-
 mongoose.connect(urlDbConnect, { useNewUrlParser: true, useUnifiedTopology: true }, error => {
     if (error) {
         throw error;
@@ -19,20 +22,22 @@ mongoose.connect(urlDbConnect, { useNewUrlParser: true, useUnifiedTopology: true
 })
 
 
+app.use(compression());
+app.use(morgan('dev'));
+app.options('*', cors());
+app.use(cors({ origin: 'http://localhost:5000' }));
 
-//Set view engine
-app.set('views', path.join(__dirname, 'views'))
-app.set('view engine', 'ejs')
-    // logger
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
-//Static file public to client
-app.use(express.static(path.join(__dirname, 'public')));
-// app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
-
-app.use(routers);
+app.use(helmet());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 
 
+app.use('/api', routers);
 
+const PORT = process.env.PORT || 5000;
 
-module.exports = app;
+const server = http.createServer(app);
+
+server.listen(PORT, () => {
+    console.log(`Server started on port ${PORT}`);
+});

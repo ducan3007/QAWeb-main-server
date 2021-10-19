@@ -1,43 +1,39 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const commentSchema = require('./comment');
+const commentSchema = require('./comments');
 const answerSchema = require('./answers');
+const tagSchema = require('./tags');
 const votes = require('./vote');
 
-const questionModel = new Schema({
+const postSchema = new Schema({
     title: {
         type: String,
         required: true
     },
-    author: {
-        type:Schema.Types.ObjectId,
-        ref:'user',
-        required:true
-        
+    user_id: {
+        type: Schema.Types.ObjectId,
+        ref: 'user',
+        required: true
     },
-    content: {
+    body: {
         type: String,
         required: true
     },
     votes: {
         type: Number,
-        default:0
+        default: 0
     },
     comments: [commentSchema],
-    answers: [answerSchema],
-    tags: [{
-        type: String,
-        required: true
-    }],
+    tags: [tagSchema],
     views: {
         type: Number,
         default: 0
     },
-    created: {
+    created_at: {
         type: Date,
         default: Date.now
     }
 })
 
-module.exports = mongoose.model('questions', questionModel);
+module.exports = mongoose.model('posts', postSchema);
