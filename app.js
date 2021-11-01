@@ -1,4 +1,3 @@
-const bodyParser = require('body-parser');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const mongoose = require('mongoose')
@@ -7,8 +6,11 @@ const compression = require('compression');
 const path = require('path');
 const http = require('http');
 const express = require('express');
-
+const NodeCache = require('node-cache')
 const routers = require('./routes/routes');
+
+const Cache = new NodeCache();
+
 
 require('dotenv').config()
 const app = express();
@@ -21,16 +23,15 @@ mongoose.connect(urlDbConnect, { useNewUrlParser: true, useUnifiedTopology: true
     console.log("Mongodb connected!")
 })
 
-
-app.use(compression());
 app.use(morgan('dev'));
+app.use(compression());
+
 app.options('*', cors());
 app.use(cors({ origin: 'http://localhost:5000' }));
 
 app.use(helmet());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 app.use('/api', routers);
 
@@ -41,3 +42,4 @@ const server = http.createServer(app);
 server.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
 });
+module.exports = Cache;

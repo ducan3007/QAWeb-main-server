@@ -15,9 +15,10 @@ module.exports = (req, res, next) => {
             if (error) {
                 return res
                     .status(400)
-                    .json(responseHandler.response(false, 400, 'Error', null));
+                    .json(responseHandler.response(false, 400, 'Verify token failed!', null));
             }
             req.user = decoded.user;
+            console.log(`Verify user: ${req.user.id}`);
             next();
         })
     } catch (err) {

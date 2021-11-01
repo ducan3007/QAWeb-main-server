@@ -1,7 +1,7 @@
+const { check, validationResult } = require('express-validator');
 const User = require('../models/user')
-const { body, validationResult } = require('express-validator');
 const responseHandler = require('../utils/response');
-
+const Post = require('../models/posts');
 
 const register = async(req, res) => {
     const errors = validationResult(req);
@@ -15,6 +15,7 @@ const register = async(req, res) => {
                 console.log(err);
                 return res.status(err.code).json(err);
             }
+            console.log("User created!");
             return res.status(result.code).json(result);
         })
 
@@ -24,37 +25,49 @@ const register = async(req, res) => {
             .json(responseHandler.response(true, 500, 'Sign up failed, try again later', null));
     }
 }
-const validatorUser = [
-    body('username')
-    .exists()
-    .trim()
-    .withMessage('username is required')
+const getUsers = (req, res) => {
+    try {
+        const id = req.params.id;
+        console.log(id);
+        if (id) {
+            User.getOneUser(id, (err, data) => {
+                if (err) {
+                    console.log(err);
+                    return res.status(err.code).json(err);
+                }
+                return res.status(data.code).json(data);
+            });
+        } else {
+            User.getAllUser((err, data) => {
+                if (err) {
+                    console.log(err);
+                    return res.status(err.code).json(err);
+                }
+                return res.status(data.code).json(data);
+            });
+        }
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json(responseHandler.response(false, 500, 'Server internal error', null))
+    }
 
-    .notEmpty()
-    .withMessage('cannot be blank')
+}
+const getUserPost = (req, res) => {
+    try {
+        Post.getUserPost(req, (err, data) => {
+            if (err) {
+                console.log(err);
+                return res.status(err.code).json(err);
+            }
+            return res.status(data.code).json(data);
+        })
+    } catch (err) {
+        console.log(err)
+    }
+}
 
-    .isLength({ min: 5 })
-    .withMessage('must be at least 5 characters long')
-
-    .matches(/^[a-zA-Z0-9_-]+$/)
-    .withMessage('User name contains invalid characters'),
-
-    body('password')
-    .exists()
-    .trim()
-    .withMessage('password is required')
-
-    .notEmpty()
-    .withMessage('cannot be blank')
-
-    .isLength({ min: 6 })
-    .withMessage('must be at least 6 characters long')
-
-    .isLength({ max: 50 })
-    .withMessage('must be at most 50 characters long')
-
-]
 module.exports = {
     register,
-    validatorUser
+    getUsers,
+    getUserPost
 };

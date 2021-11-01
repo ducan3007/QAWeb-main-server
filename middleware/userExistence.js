@@ -7,7 +7,7 @@ module.exports = async(req, res, next) => {
     try {
         const check = await User.findOne({
             username: _username
-        }, { _id: 1 }).lean();
+        }, { _id: 1 });
 
         if (check) {
             return res.status(400)

@@ -1,19 +1,29 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const commentSchema = new Schema({
-    author:{
-        type:Schema.Types.ObjectId,
-        ref:'user',
-        required:true,
+const commentSchema = mongoose.Schema({
+    Author: {
+        type: Schema.Types.ObjectId,
+        ref: 'users',
+        required: true,
     },
-    content:{
-        type:String,
-        required:true
+    body: {
+        type: String,
+        required: true
     },
-    created:{
-        type:Date,
+    post_id: {
+        type: Schema.Types.ObjectId,
+        required: true,
+    },
+    answer_id: {
+        type: Schema.Types.ObjectId,
+        required: false,
+    },
+    created_at: {
+        type: Date,
         default: Date.now
     }
 })
 module.exports = commentSchema;
+
+commentSchema.set('toJSON', { getters: true });

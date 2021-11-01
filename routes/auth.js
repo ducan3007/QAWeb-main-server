@@ -1,12 +1,12 @@
 const express = require('express');
 const { check } = require('express-validator');
-const jwtAuth = require('../middleware/verify');
+const verifyToken = require('../middleware/verifyToken');
 const authController = require('../controllers/auth')
-
+const validator = require('../utils/validator');
 const router = express.Router();
 
-router.get('/', );
+router.get('/', verifyToken, authController.loadUser);
 
-
+router.post('/', validator.validatorUser, authController.login)
 
 module.exports = router;
