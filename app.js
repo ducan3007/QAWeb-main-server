@@ -6,10 +6,8 @@ const compression = require('compression');
 const path = require('path');
 const http = require('http');
 const express = require('express');
-const NodeCache = require('node-cache')
-const routers = require('./routes/routes');
 
-const Cache = new NodeCache();
+const routers = require('./routes/routes');
 
 
 require('dotenv').config()
@@ -42,4 +40,3 @@ const server = http.createServer(app);
 server.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
 });
-module.exports = Cache;

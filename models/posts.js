@@ -7,8 +7,7 @@ const Tags = require("./tags");
 const sizeof = require("object-sizeof");
 const Votes = require("./vote");
 
-const NodeCache = require("node-cache");
-const Cache = new NodeCache();
+
 
 const postSchema = new Schema({
     title: {
