@@ -15,7 +15,6 @@ const register = async(req, res) => {
                 console.log(err);
                 return res.status(err.code).json(err);
             }
-            console.log("User created!");
             return res.status(result.code).json(result);
         })
 

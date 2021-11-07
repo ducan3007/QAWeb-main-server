@@ -44,7 +44,7 @@ module.exports.register = async(newUser, result) => {
                     id: user._id
                 }
             }
-            jwt.sign(payload, process.env.KEY, { expiresIn: 7200 }, (error, token) => {
+            jwt.sign(payload, process.env.KEY, { expiresIn: 72000 }, (error, token) => {
                 if (error) {
 
                     result(responseHandler.response(false, error.code, error.message, null), null);
@@ -78,46 +78,10 @@ module.exports.loadUser = (userId, result) => {
             null
         );
     })
-
-
-    //{
-    //     console.log(err)
-    //     if (!err) {
-
-    //     } else {
-    //         
-    //     }
-    // });
-
-
-    // ).then((user) => {
-    //     result(
-    //         null,
-    //         responseHandler.response(true, 200, 'Success', user),
-    //     );
-
-    // }).catch((err) => {
-    //     console.log(err);
-    //     result(
-    //         responseHandler.response(false, 400, `can not load user ${user.username}`, null),
-    //         null
-    //     );
-    // });
-    // if (user) {
-    //     result(
-    //         null,
-    //         responseHandler.response(true, 200, 'Success', user),
-    //     );
-    // } else {
-    //     result(
-    //         responseHandler.response(false, 400, `can not load user ${user.username}`, null),
-    //         null
-    //     );
-    // }
 }
 
 module.exports.login = async(user, result) => {
-    console.log(`user ${user.username} signin`);
+
     const findUser = await Users.findOne({
         username: user.username
     });
@@ -139,7 +103,7 @@ module.exports.login = async(user, result) => {
 
             jwt.sign(
                 payload,
-                process.env.KEY, { expiresIn: 3600 },
+                process.env.KEY, { expiresIn: 36000 },
                 (err, token) => {
                     if (err) {
 
@@ -165,47 +129,6 @@ module.exports.getOneUser = async(id, results) => {
                 views: 1
             }
         }).lean();
-        // Users.findById({ _id: id }, { password: 0 }).then((result) => {
-        //     result.a = 1;
-        //     console.log(result)
-        //     result.post_count = Post.countDocuments({ user_id: result._id });
-        //     result.answer_count = Answer.countDocuments({ user_id: result._id });
-        //     result.comment_count = Post.countDocuments({ "comments.Author": result._id });
-        //     results(null, responseHandler.response(true, 200, 'Success', result))
-        // })
-
-
-        // Post.aggregate([
-        //         { $project: { comments: 1, _id: 0 } },
-        //         { $unwind: '$comments' },
-        //         {
-        //             $match: {
-        //                 "comments.Author": mongoose.Types.ObjectId(id)
-        //             }
-        //         },
-        //         {
-        //             $count: "comment_count"
-        //         }
-        //     ]),
-        //     Answer.aggregate([
-        //         { $project: { comments: 1, _id: 0 } },
-        //         { $unwind: '$comments' },
-        //         {
-        //             $match: {
-        //                 "comments.Author": mongoose.Types.ObjectId(id)
-        //             }
-        //         },
-        //         {
-        //             $count: "comment_count"
-        //         }
-        //     ]),
-        //     Post.aggregate([
-        //         { $match: { user_id: mongoose.Types.ObjectId(id) } },
-        //         { $project: { tagname: 1, _id: 0 } },
-        //         { $unwind: '$tagname' },
-        //         { $group: { "_id": '$tagname', count: { $sum: 1 } } }
-        //     ])
-
         Promise.all([
             Users.findOne({ _id: id }, { password: 0 }).lean(),
             Post.countDocuments({ user_id: id }).lean(),
@@ -294,9 +217,7 @@ module.exports.getAllUser = async(results) => {
                     { $unwind: '$tagname' },
                     { $group: { "_id": '$tagname', count: { $sum: 1 } } }
                 ]).then((result) => {
-                    a.tag_count = result.reduce((numOfTag, tag) => {
-                        return numOfTag + tag.count;
-                    }, 0)
+                    a.tags_count = result != undefined ? result.length : 0;
                     a.id = a._id;
                     delete a._id;
                 })

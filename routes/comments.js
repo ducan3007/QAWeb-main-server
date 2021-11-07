@@ -7,6 +7,7 @@ const validator = require('../utils/validator');
 const router = express.Router();
 
 router.post('/:post_id', verifyToken, validator.validatorComments, comments.addPostComment);
+router.delete('/:post_id/:comment_id', verifyToken, comments.deletePostComment);
 
 router.get('/:post_id', comments.getPostComment);
 

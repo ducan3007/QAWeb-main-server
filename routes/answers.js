@@ -8,8 +8,9 @@ const comments = require('../controllers/comments');
 const router = express.Router();
 
 router.post('/:id', [verifyToken, validator.validatorAnswers], answers.addAnswer);
+router.delete('/:answer_id', verifyToken, answers.deleteAnswer);
 router.get('/:id', answers.getAnswer);
 
-router.post('/:post_id', answers.getAnswer);
+
 
 module.exports = router;

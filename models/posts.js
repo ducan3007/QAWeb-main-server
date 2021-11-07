@@ -7,8 +7,6 @@ const Tags = require("./tags");
 const sizeof = require("object-sizeof");
 const Votes = require("./vote");
 
-
-
 const postSchema = new Schema({
     title: {
         type: String,
@@ -57,49 +55,8 @@ postSchema.options.toJSON.transform = (doc, ret) => {
 
 const Post = (module.exports = mongoose.model("posts", postSchema));
 
-const addTags = async(tagnames) => {
-    const options = {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-    };
-    const query = {
-        $inc: {
-            posts_count: 1,
-        },
-    };
-    // var promises = tagnames.map(tag => fetchTagDesc.fetchTagDescription(tag));
-    // Promise.all(promises)
-    //     .then(results => {
-    //         console.log(results)
-    //         for (let i = 0; i < tagnames.length; i++) {
-    //             Tags.findOneAndUpdate({ tagname: tagnames[i], description: results[i] }, query, options);
-    //         };
-
-    //     })
-
-    let tagDescription;
-    for (let tag of tagnames) {
-        tagDescription = Cache.get(tag);
-        if (!tagDescription) {
-            tagDescription = await fetchTagDesc.fetchTagDescription(tag);
-            Cache.set(tag, tagDescription);
-        }
-        const result = await Tags.findOneAndUpdate({ tagname: tag, description: tagDescription },
-            query,
-            options
-        );
-        if (!result) {
-            return;
-        }
-    }
-
-    return true;
-};
-
 module.exports.createPost = (req, result) => {
     const tagnames = req.body.tagname.toString().split(/[,]+/);
-    console.log(tagnames);
     try {
         const options = {
             upsert: true,
@@ -107,17 +64,16 @@ module.exports.createPost = (req, result) => {
             setDefaultsOnInsert: true,
         };
         const promises = tagnames.map((tag) => {
-            Tags.findOne({ tagname: tag }, { _id: 1 }).then((result) => {
-                if (!result) {
-                    console.log("fetching tag desc.......");
-                    return fetchTagDesc.fetchTagDescription(tag);
-                }
-                return;
-            });
+            Tags.findOne({ tagname: tag }, { _id: 1 })
+                .then((result) => {
+                    if (!result) {
+                        return fetchTagDesc.fetchTagDescription(tag);
+                    }
+                    return;
+                })
+                .catch((err) => {});
         });
         Promise.all(promises).then(async(results) => {
-            console.log(results);
-            console.log(tagnames.length);
             for (let i = 0; i < tagnames.length; i++) {
                 if (results[i] == null) {
                     await Tags.findOneAndUpdate({ tagname: tagnames[i] }, {
@@ -126,7 +82,7 @@ module.exports.createPost = (req, result) => {
                             },
                         },
                         options
-                    );
+                    ).catch((err) => {});
                 } else {
                     await Tags.findOneAndUpdate({ tagname: tagnames[i] }, {
                             $inc: {
@@ -137,7 +93,7 @@ module.exports.createPost = (req, result) => {
                             },
                         },
                         options
-                    );
+                    ).catch((err) => {});
                 }
             }
             const addPost = await Post.create({
@@ -145,7 +101,7 @@ module.exports.createPost = (req, result) => {
                 user_id: req.user.id,
                 body: req.body.body,
                 tagname: tagnames,
-            });
+            }).catch((err) => {});
             if (addPost) {
                 result(
                     null,
@@ -154,44 +110,12 @@ module.exports.createPost = (req, result) => {
             }
         });
     } catch (err) {
-        result(responseHandler.response(false, err.code, err.message, null), null);
+        result(responseHandler.response(false, 500, "Server Error", null), null);
     }
-
-    // console.log(tagnames);
-    // try {
-    //     // const addPost = await Post.create({
-    //     //     title: req.body.title,
-    //     //     user_id: req.user.id,
-    //     //     body: req.body.body,
-    //     //     tagname: tags
-    //     // });
-    //     // const addTag = await addTags(tags);
-    //     const [addPost, addTag] = await Promise.all([Post.create({
-    //         title: req.body.title,
-    //         user_id: req.user.id,
-    //         body: req.body.body,
-    //         tagname: tagnames
-    //     }), addTags(tagnames)])
-
-    //     if (addPost && addTag) {
-    //         result(null, responseHandler.response(true, 200,
-    //             'Post Created', addPost._id));
-    //     } else {
-    //         result(null, responseHandler.response(false, 500,
-    //             'Post creation failed', null));
-    //     }
-    // } catch (err) {
-    //     console.log(err);
-    //     result(responseHandler.response(
-    //         false,
-    //         err.code,
-    //         err.message,
-    //         null), null)
-    // }
 };
 
 // Post_id : 6176d9fb047f6607d50b765e
-module.exports.addPostComment = async(req, results) => {
+module.exports.addPostComment = (req, results) => {
     try {
         const comment = {
             body: req.body.body,
@@ -199,33 +123,35 @@ module.exports.addPostComment = async(req, results) => {
             post_id: req.params.post_id,
         };
 
-        const result = await Post.findOneAndUpdate({ _id: req.params.post_id }, { $push: { comments: comment } });
-        if (result) {
-            results(
-                null,
-                responseHandler.response(
-                    true,
-                    200,
-                    "Comment added successfully",
-                    result._id
-                )
-            );
-        }
+        Post.findOneAndUpdate({ _id: req.params.post_id }, { $push: { comments: comment } })
+            .then((result) => {
+                results(
+                    null,
+                    responseHandler.response(
+                        true,
+                        200,
+                        "Comment added successfully",
+                        result._id
+                    )
+                );
+            })
+            .catch((err) => {
+                results(
+                    responseHandler.response(false, 400, "add comment failed", null),
+                    null
+                );
+            });
     } catch (err) {
-        results(
-            responseHandler.response(false, 400, "add comment failed", null),
-            null
-        );
+        results(responseHandler.response(false, 500, "Server Error", null), null);
     }
 };
-module.exports.getPostComments = async(req, results) => {
-    try {
-        const postId = req.params.post_id;
-
-        Post.findById({ _id: postId }, { comments: 1 })
-            .populate("comments.Author", "username")
-            .lean()
-            .then((result) => {
+module.exports.getPostComments = (req, results) => {
+    const postId = req.params.post_id;
+    Post.findById({ _id: postId }, { comments: 1 })
+        .populate("comments.Author", "username")
+        .lean()
+        .then((result) => {
+            if (result) {
                 const data = JSON.parse(JSON.stringify(result.comments)).map((doc) => {
                     doc.username = doc.Author.username;
                     doc.user_id = doc.Author._id;
@@ -238,96 +164,22 @@ module.exports.getPostComments = async(req, results) => {
                     null,
                     responseHandler.response(true, 200, "successfully", data)
                 );
-            });
-    } catch (err) {
-        results(responseHandler.response(false, 500, "Server Error", null), null);
-    }
-};
-
-module.exports.getPosts = async(req, results) => {
-    try {
-        if (req.params.tagname) {} else if (req.url.includes("tog")) {} else {
-            Post.find()
-                .lean()
-                .populate("user_id", "username")
-                .populate("answers", "comments")
-                .sort("-created_at")
-                .lean()
-                .then((result) => {
-                    console.log(sizeof(result));
-                    result = result.map((doc) => {
-                        const obj = {};
-                        obj.id = doc._id;
-                        obj.user_id = doc.user_id._id;
-                        obj.username = doc.user_id.username;
-                        obj.title = doc.title;
-                        obj.body = doc.body;
-                        obj.tagname = doc.tagname;
-                        obj.answer_count =
-                            doc.answers != undefined ? doc.answers.length : 0;
-                        obj.comment_count =
-                            doc.comments != undefined ? doc.comments.length : 0;
-                        obj.views = doc.views;
-                        obj.created_at = doc.created_at;
-                        return obj;
-                    });
-                    results(
-                        null,
-                        responseHandler.response(true, 200, "successfully", result)
-                    );
-                });
-
-            //     Post.aggregate([{
-            //             $lookup: {
-            //                 from: "users",
-            //                 localField: "user_id",
-            //                 foreignField: "_id",
-            //                 as: "author"
-            //             }
-            //         },
-            //         {
-            //             $lookup: {
-            //                 from: "answers",
-            //                 localField: "answers.answer_id",
-            //                 foreignField: "_id",
-            //                 as: "answers"
-            //             }
-            //         }, {
-            //             $project: {
-            //                 _id: 1,
-            //                 title: 1,
-            //                 user_id: 1,
-            //                 tagname: 1,
-            //                 voets: 1,
-            //                 views: 1,
-            //                 "username": "$author.username",
-            //                 "comment_count": { $cond: { if: { $isArray: "$comments" }, then: { $size: "$comments" }, else: "0" } },
-            //                 "answers_count": { $cond: { if: { $isArray: "$answers" }, then: { $size: "$answers" }, else: "0" } },
-            //                 created_at: 1,
-            //             }
-            //         }
-            //     ]).then((result) => {
-            //         console.log(sizeof(result));
-            //         results(null, responseHandler.response(true, 200, 'successfully', result))
-            //     })
-        }
-    } catch (err) {
-        results(responseHandler.response(false, 500, "server error", null), null);
-    }
-};
-module.exports.getOnePost = async(req, results) => {
-    try {
-        const postId = req.params.post_id;
-        await Post.findOneAndUpdate({ _id: postId }, {
-            $inc: {
-                views: 1,
-            },
+            }
+        })
+        .catch((err) => {
+            results(responseHandler.response(false, 404, "Not found", null), null);
         });
-        Post.findById({ _id: postId })
-            .populate("user_id", "username")
-            .populate("answers", "comments")
-            .lean()
-            .then((doc) => {
+};
+
+module.exports.getPosts = (req, results) => {
+    Post.find()
+        .lean()
+        .populate("user_id", "username")
+        .populate("answers", "comments")
+        .sort("-created_at")
+        .lean()
+        .then((result) => {
+            result = result.map((doc) => {
                 const obj = {};
                 obj.id = doc._id;
                 obj.user_id = doc.user_id._id;
@@ -339,14 +191,62 @@ module.exports.getOnePost = async(req, results) => {
                 obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
                 obj.views = doc.views;
                 obj.created_at = doc.created_at;
-                results(null, responseHandler.response(true, 200, "successfully", obj));
+                return obj;
             });
-    } catch (err) {}
+            if (req.params.tagname) {
+                result = result.filter((doc) => {
+                    return doc.tagname.includes(req.params.tagname);
+                });
+            } else if (req.url.includes("top")) {
+                result = result.sort((a, b) => {
+                    return b.answer_count - a.answer_count != 0 ?
+                        b.answer_count - a.answer_count :
+                        b.comment_count - a.comment_count;
+                });
+            }
+            results(
+                null,
+                responseHandler.response(true, 200, "successfully", result)
+            );
+        })
+        .catch((err) => {
+            results(responseHandler.response(false, 400, "not found", null), null);
+        });
+};
+module.exports.getOnePost = (req, results) => {
+    const postId = req.params.post_id;
+    Post.findOneAndUpdate({ _id: postId }, {
+        $inc: {
+            views: 1,
+        },
+    }).catch((err) => {
+        results(responseHandler.response(false, 404, "not found", null), null);
+    });
+    Post.findById({ _id: postId })
+        .populate("user_id", "username")
+        .populate("answers", "comments")
+        .lean()
+        .then((doc) => {
+            const obj = {};
+            obj.id = doc._id;
+            obj.user_id = doc.user_id._id;
+            obj.username = doc.user_id.username;
+            obj.title = doc.title;
+            obj.body = doc.body;
+            obj.tagname = doc.tagname;
+            obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
+            obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
+            obj.views = doc.views;
+            obj.created_at = doc.created_at;
+            results(null, responseHandler.response(true, 200, "successfully", obj));
+        })
+        .catch((err) => {
+            results(responseHandler.response(false, 400, "not found", null), null);
+        });
 };
 
 module.exports.getUserPost = (req, results) => {
     try {
-        console.log(req.params.id);
         Post.find({ user_id: req.params.id })
             .lean()
             .populate("user_id", "username")
@@ -373,8 +273,66 @@ module.exports.getUserPost = (req, results) => {
                     null,
                     responseHandler.response(true, 200, "successfully", result)
                 );
+            })
+            .catch((err) => {
+                results(responseHandler.response(false, 404, "Not found", null), null);
             });
     } catch (err) {
         results(responseHandler.response(false, 500, "Server Error", null), null);
     }
 };
+module.exports.deletePost = (req, results) => {
+    Post.findOneAndDelete({
+                $and: [
+                    { _id: req.params.post_id },
+                    {
+                        user_id: req.user.id
+                    }
+                ]
+            }
+            // , {
+            //     $pull: { _id: req.params.post_id },
+            // }
+        )
+        .then((result) => {
+            if (result) {
+                results(
+                    null,
+                    responseHandler.response(true, 200, "Delete post successfully", null)
+                );
+            } else {
+                results(responseHandler.response(false, 404, "Post Not found", null), null);
+            }
+        })
+        .catch((err) => {
+            console.log(err)
+            results(responseHandler.response(false, 404, "Post Not found", null), null);
+        });
+}
+module.exports.deletePostComment = (req, results) => {
+    Post.findOneAndUpdate({
+            $and: [
+                { _id: req.params.post_id },
+                {
+                    'comments._id': req.params.comment_id,
+                }, {
+                    'comments.Author': req.user.id
+                }
+            ]
+        }, {
+            $pull: { comments: { _id: req.params.comment_id } },
+        })
+        .then((result) => {
+            if (result) {
+                results(
+                    null,
+                    responseHandler.response(true, 200, "Delete comment successfully", null)
+                );
+            } else {
+                results(responseHandler.response(false, 404, "Comment Not found", null), null);
+            }
+        })
+        .catch((err) => {
+            results(responseHandler.response(false, 404, "Not found", null), null);
+        });
+}

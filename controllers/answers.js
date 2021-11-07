@@ -37,7 +37,23 @@ const getAnswer = (req, res) => {
 
     }
 }
+const deleteAnswer = (req, res) => {
+    try {
+        Answers.deleteAnswer(req, (err, data) => {
+            if (err) {
+                console.log(err);
+                return res.status(err.code).json(err);
+            }
+            return res.status(data.code).json(data);
+        })
+    } catch (err) {
+        return res
+            .status(500)
+            .json(responseHandler.response(true, 500, 'server error', null));
+    }
+}
 module.exports = answersController = {
     addAnswer,
-    getAnswer
+    getAnswer,
+    deleteAnswer
 }

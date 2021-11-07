@@ -31,6 +31,7 @@ module.exports.validatorUser = [
 
     .isLength({ max: 50 })
     .withMessage('must be at most 50 characters long')
+
 ];
 
 module.exports.validatorPost = [
@@ -42,8 +43,8 @@ module.exports.validatorPost = [
     .notEmpty()
     .withMessage('title cannot be blank')
 
-    .isLength({ min: 15 })
-    .withMessage('title must be at least 15 characters long'),
+    .isLength({ min: 10 })
+    .withMessage('title must be at least 5 characters long'),
 
     check('body')
     .exists()
@@ -63,10 +64,12 @@ module.exports.validatorPost = [
 
     .notEmpty()
     .withMessage('tagname cannot be blank')
+    .toLowerCase()
 
     .isLength({ max: 100 })
     .withMessage('tagname too long')
-
+    .matches('^[a-zA-Z0-9]+([^,]*,[^,]*){0,4}$')
+    .withMessage("You can only add up to 5 tags")
 
 ];
 module.exports.validatorAnswers = [

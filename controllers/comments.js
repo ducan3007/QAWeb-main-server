@@ -79,13 +79,41 @@ const getAnswerComment = (req, res) => {
             .json(responseHandler.response(false, 500, 'Server Error', null));
     }
 }
-
-
+const deleteAnswerComment = (req, res) => {
+    try {
+        Answer.deleteAnswercomment(req, (err, data) => {
+            if (err) {
+                console.log(err);
+                return res.status(err.code).json(err);
+            }
+            return res.status(data.code).json(data);
+        })
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json(err);
+    }
+}
+const deletePostComment = (req, res) => {
+    try {
+        Post.deletePostComment(req, (err, data) => {
+            if (err) {
+                console.log(err);
+                return res.status(err.code).json(err);
+            }
+            return res.status(data.code).json(data);
+        })
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json(err);
+    }
+}
 
 
 module.exports = commentsController = {
     addPostComment,
     getPostComment,
     addAnswerComment,
-    getAnswerComment
+    getAnswerComment,
+    deleteAnswerComment,
+    deletePostComment
 }
