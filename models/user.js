@@ -54,7 +54,7 @@ module.exports.register = async(newUser, result) => {
             })
         }
     } catch (err) {
-        console.log(`User signup error : ${err}`);
+
 
     }
 }

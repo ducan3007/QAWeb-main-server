@@ -63,50 +63,64 @@ module.exports.createPost = (req, result) => {
             new: true,
             setDefaultsOnInsert: true,
         };
-        const promises = tagnames.map((tag) => {
-            Tags.findOne({ tagname: tag }, { _id: 1 })
-                .then((result) => {
-                    if (!result) {
-                        return fetchTagDesc.fetchTagDescription(tag);
-                    }
+        const promises = tagnames.map(async(tag) => {
+            try {
+                const tagfound = await Tags.findOne({ $and: [{ tagname: tag }, { description: { $exists: true } }] }, { _id: 1 });
+                if (tagfound) {
                     return;
-                })
-                .catch((err) => {});
+                } else {
+                    return fetchTagDesc.fetchTagDescription(tag);
+                }
+            } catch (err) {
+                console.log(err);
+            }
         });
         Promise.all(promises).then(async(results) => {
             for (let i = 0; i < tagnames.length; i++) {
                 if (results[i] == null) {
-                    await Tags.findOneAndUpdate({ tagname: tagnames[i] }, {
-                            $inc: {
-                                posts_count: 1,
+                    try {
+                        await Tags.findOneAndUpdate({ tagname: tagnames[i] }, {
+                                $inc: {
+                                    posts_count: 1,
+                                },
                             },
-                        },
-                        options
-                    ).catch((err) => {});
+                            options
+                        );
+                    } catch (err) {
+                        console.log(err);
+                    }
                 } else {
-                    await Tags.findOneAndUpdate({ tagname: tagnames[i] }, {
-                            $inc: {
-                                posts_count: 1,
+                    try {
+                        await Tags.findOneAndUpdate({ tagname: tagnames[i] }, {
+                                $inc: {
+                                    posts_count: 1,
+                                },
+                                $set: {
+                                    description: results[i],
+                                },
                             },
-                            $set: {
-                                description: results[i],
-                            },
-                        },
-                        options
-                    ).catch((err) => {});
+                            options
+                        );
+                    } catch (err) {
+                        console.log(err);
+                    }
                 }
             }
-            const addPost = await Post.create({
-                title: req.body.title,
-                user_id: req.user.id,
-                body: req.body.body,
-                tagname: tagnames,
-            }).catch((err) => {});
-            if (addPost) {
-                result(
-                    null,
-                    responseHandler.response(true, 200, "Post Created", addPost._id)
-                );
+            try {
+                const addPost = await Post.create({
+                    title: req.body.title,
+                    user_id: req.user.id,
+                    body: req.body.body,
+                    tagname: tagnames,
+                });
+                if (addPost) {
+                    result(
+                        null,
+                        responseHandler.response(true, 200, "Post Created", addPost._id)
+                    );
+                }
+            } catch (err) {
+                console.log(err);
             }
         });
     } catch (err) {
@@ -286,9 +300,9 @@ module.exports.deletePost = (req, results) => {
                 $and: [
                     { _id: req.params.post_id },
                     {
-                        user_id: req.user.id
-                    }
-                ]
+                        user_id: req.user.id,
+                    },
+                ],
             }
             // , {
             //     $pull: { _id: req.params.post_id },
@@ -301,24 +315,31 @@ module.exports.deletePost = (req, results) => {
                     responseHandler.response(true, 200, "Delete post successfully", null)
                 );
             } else {
-                results(responseHandler.response(false, 404, "Post Not found", null), null);
+                results(
+                    responseHandler.response(false, 404, "Post Not found", null),
+                    null
+                );
             }
         })
         .catch((err) => {
-            console.log(err)
-            results(responseHandler.response(false, 404, "Post Not found", null), null);
+            console.log(err);
+            results(
+                responseHandler.response(false, 404, "Post Not found", null),
+                null
+            );
         });
-}
+};
 module.exports.deletePostComment = (req, results) => {
     Post.findOneAndUpdate({
             $and: [
                 { _id: req.params.post_id },
                 {
-                    'comments._id': req.params.comment_id,
-                }, {
-                    'comments.Author': req.user.id
-                }
-            ]
+                    "comments._id": req.params.comment_id,
+                },
+                {
+                    "comments.Author": req.user.id,
+                },
+            ],
         }, {
             $pull: { comments: { _id: req.params.comment_id } },
         })
@@ -326,13 +347,21 @@ module.exports.deletePostComment = (req, results) => {
             if (result) {
                 results(
                     null,
-                    responseHandler.response(true, 200, "Delete comment successfully", null)
+                    responseHandler.response(
+                        true,
+                        200,
+                        "Delete comment successfully",
+                        null
+                    )
                 );
             } else {
-                results(responseHandler.response(false, 404, "Comment Not found", null), null);
+                results(
+                    responseHandler.response(false, 404, "Comment Not found", null),
+                    null
+                );
             }
         })
         .catch((err) => {
             results(responseHandler.response(false, 404, "Not found", null), null);
         });
-}
+};

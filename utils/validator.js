@@ -68,7 +68,7 @@ module.exports.validatorPost = [
 
     .isLength({ max: 100 })
     .withMessage('tagname too long')
-    .matches('^[a-zA-Z0-9]+([^,]*,[^,]*){0,4}$')
+    .matches('^[a-zA-Z0-9++--.]+([^,]*,[^,]*){0,4}$')
     .withMessage("You can only add up to 5 tags")
 
 ];
@@ -84,7 +84,7 @@ module.exports.validatorAnswers = [
     .isLength({ min: 5 })
     .withMessage('answers must be at least 15 characters long')
 
-    .isLength({ max: 1000 })
+    .isLength({ max: 5000 })
     .withMessage('answers too long'),
 ];
 module.exports.validatorComments = [

@@ -27,7 +27,6 @@ const register = async(req, res) => {
 const getUsers = (req, res) => {
     try {
         const id = req.params.id;
-        console.log(id);
         if (id) {
             User.getOneUser(id, (err, data) => {
                 if (err) {
