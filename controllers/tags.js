@@ -1,7 +1,6 @@
 const Tag = require('../models/tags');
 const responseHandler = require('../utils/response');
 
-
 const getAllTags = (req, res) => {
     try {
         Tag.getAllTags((err, data) => {

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const voteSchema = new Schema({
-    user: {
+    user_id: {
         type: Schema.Types.ObjectId,
         required: true
     },

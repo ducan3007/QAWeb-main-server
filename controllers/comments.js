@@ -1,7 +1,7 @@
-const { validationResult } = require('express-validator');
-const responseHandler = require('../utils/response');
-const Post = require('../models/posts');
-const Answer = require('../models/answers');
+const { validationResult } = require("express-validator");
+const responseHandler = require("../utils/response");
+const Post = require("../models/posts");
+const Answer = require("../models/answers");
 
 const addPostComment = (req, res) => {
     const errors = validationResult(req);
@@ -17,14 +17,14 @@ const addPostComment = (req, res) => {
                 return res.status(err.code).json(err);
             }
             return res.status(data.code).json(data);
-        })
-
+        });
     } catch (err) {
         console.log(err);
-        return res.status(500).json(responseHandler.response(false, 500, 'Server Error', null));
-
+        return res
+            .status(500)
+            .json(responseHandler.response(false, 500, "Server Error", null));
     }
-}
+};
 const getPostComment = (req, res) => {
     try {
         Post.getPostComments(req, (err, data) => {
@@ -38,9 +38,9 @@ const getPostComment = (req, res) => {
         console.log(err);
         return res
             .status(500)
-            .json(responseHandler.response(false, 500, 'Server Error', null));
+            .json(responseHandler.response(false, 500, "Server Error", null));
     }
-}
+};
 const addAnswerComment = (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -55,14 +55,14 @@ const addAnswerComment = (req, res) => {
                 return res.status(err.code).json(err);
             }
             return res.status(data.code).json(data);
-        })
-
+        });
     } catch (err) {
         console.log(err);
-        return res.status(500).json(responseHandler.response(false, 500, 'Server Error', null));
-
+        return res
+            .status(500)
+            .json(responseHandler.response(false, 500, "Server Error", null));
     }
-}
+};
 const getAnswerComment = (req, res) => {
     try {
         Answer.getAnswerComment(req, (err, data) => {
@@ -76,9 +76,9 @@ const getAnswerComment = (req, res) => {
         console.log(err);
         return res
             .status(500)
-            .json(responseHandler.response(false, 500, 'Server Error', null));
+            .json(responseHandler.response(false, 500, "Server Error", null));
     }
-}
+};
 const deleteAnswerComment = (req, res) => {
     try {
         Answer.deleteAnswercomment(req, (err, data) => {
@@ -87,12 +87,12 @@ const deleteAnswerComment = (req, res) => {
                 return res.status(err.code).json(err);
             }
             return res.status(data.code).json(data);
-        })
+        });
     } catch (err) {
         console.log(err);
         return res.status(500).json(err);
     }
-}
+};
 const deletePostComment = (req, res) => {
     try {
         Post.deletePostComment(req, (err, data) => {
@@ -101,13 +101,12 @@ const deletePostComment = (req, res) => {
                 return res.status(err.code).json(err);
             }
             return res.status(data.code).json(data);
-        })
+        });
     } catch (err) {
         console.log(err);
         return res.status(500).json(err);
     }
-}
-
+};
 
 module.exports = commentsController = {
     addPostComment,
@@ -115,5 +114,5 @@ module.exports = commentsController = {
     addAnswerComment,
     getAnswerComment,
     deleteAnswerComment,
-    deletePostComment
-}
+    deletePostComment,
+};

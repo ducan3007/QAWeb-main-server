@@ -3,9 +3,10 @@ const { response } = require("../utils/response");
 const Schema = mongoose.Schema;
 const commentSchema = require("./comments");
 const responseHandler = require("../utils/response");
-const { post } = require("./vote");
 const Post = require("./posts");
-const sizeof = require("object-sizeof");
+const Tags = require("./tags");
+const voteSchema = require('./vote');
+
 const answerSchema = new Schema({
     post_id: {
         type: Schema.Types.ObjectId,
@@ -24,10 +25,7 @@ const answerSchema = new Schema({
         type: Date,
         default: Date.now,
     },
-    votes: {
-        type: Number,
-        default: 0,
-    },
+    votes: [voteSchema],
     comments: [commentSchema],
 });
 
@@ -41,49 +39,52 @@ answerSchema.options.toJSON.transform = (doc, ret) => {
 };
 const Answers = (module.exports = mongoose.model("answers", answerSchema));
 
-module.exports.addAnswers = async(req, results) => {
-    //url http://localhost:5001/api/posts/answers/6176c035118a04513c99f650
-    try {
-        await Answers.create({
-                body: req.body.text,
-                author: req.user.id,
-                post_id: req.params.id,
-            })
-            .then(async(result) => {
-                const addToPost = await Post.findOneAndUpdate({ _id: req.params.id }, { $push: { answers: result._id } });
-                if (addToPost) {
+module.exports.addAnswers = (req, results) => {
+    //  try {
+    Answers.create({
+            body: req.body.text,
+            author: req.user.id,
+            post_id: req.params.id,
+        })
+        .then((result) => {
+            Post.findOneAndUpdate({ _id: req.params.id }, { $push: { answers: result._id } })
+                .then((result) => {
+                    if (result) {
+                        results(
+                            null,
+                            responseHandler.response(
+                                true,
+                                200,
+                                "Answer added successfully",
+                                result._id
+                            )
+                        );
+                    }
+                })
+                .catch((err) => {
+                    console.log(err);
                     results(
-                        null,
-                        responseHandler.response(
-                            true,
-                            200,
-                            "Answer added successfully",
-                            result._id
-                        )
+                        responseHandler.response(false, 400, "add answer failed", null),
+                        null
                     );
-                }
-            })
-            .catch((err) => {
-                results(
-                    responseHandler.response(false, 400, "add answer failed", null),
-                    null
-                );
-            });
-    } catch (err) {
-        console.log(err);
-        results(responseHandler.response(false, 500, "Server Error", null), null);
-    }
+                });
+        })
+        .catch((err) => {
+            console.log(err);
+            results(
+                responseHandler.response(false, 400, "add answer failed", null),
+                null
+            );
+        });
 };
-module.exports.getAnswer = async(req, results) => {
+module.exports.getAnswer = (req, results) => {
     try {
-
-        await Answers.find({ post_id: req.params.id })
+        Answers.find({ post_id: req.params.id })
             .populate("author", "username")
             .populate("comments.Author", "username")
             .sort("-created_at")
             .lean()
             .then((result) => {
-
                 result = result.map((doc) => {
                     doc.user_id = doc.author._id;
                     doc.id = doc._id;
@@ -107,13 +108,13 @@ module.exports.getAnswer = async(req, results) => {
                 );
             })
             .catch((err) => {
-                results(responseHandler.response(false, 400, "not found", null), null);
+                results(responseHandler.response(false, 400, "not found", ''), '');
             });
     } catch (err) {
-        results(responseHandler.response(false, 500, "Server Error", null), null);
+        results(responseHandler.response(false, 500, "Server Error", ''), '');
     }
 };
-module.exports.addAnswerComment = async(req, results) => {
+module.exports.addAnswerComment = (req, results) => {
     try {
         const comment = {
             body: req.body.body,
@@ -138,11 +139,6 @@ module.exports.addAnswerComment = async(req, results) => {
                     null
                 );
             });
-        // if (result) {
-        //   results(null, responseHandler.response(true, 200, 'Comment added successfully', result._id))
-        // } else {
-        //     results(responseHandler.response(false, 400, 'add comment failed', null), null)
-        // }
     } catch (err) {
         results(responseHandler.response(false, 500, "Server Error", null), null);
     }
@@ -176,17 +172,16 @@ module.exports.getAnswerComment = (req, results) => {
     }
 };
 module.exports.deleteAnswercomment = (req, results) => {
-    // db.answers.find({_id:ObjectId("6186880bdda3d9f3985a6e05")},{comments:{$elemMatch:{_id:ObjectId("61868994dda3d9f3985a6ebc")}}}).pretty();
-
     Answers.findOneAndUpdate({
             $and: [
                 { _id: req.params.answer_id },
                 {
-                    'comments._id': req.params.comment_id,
-                }, {
-                    'comments.Author': req.user.id
-                }
-            ]
+                    "comments._id": req.params.comment_id,
+                },
+                {
+                    "comments.Author": req.user.id,
+                },
+            ],
         }, {
             $pull: { comments: { _id: req.params.comment_id } },
         })
@@ -194,7 +189,12 @@ module.exports.deleteAnswercomment = (req, results) => {
             if (result) {
                 results(
                     null,
-                    responseHandler.response(true, 200, "successfully", null)
+                    responseHandler.response(
+                        true,
+                        200,
+                        "Delete comment successfully",
+                        null
+                    )
                 );
             } else {
                 results(responseHandler.response(false, 404, "Not found", null), null);
@@ -209,22 +209,139 @@ module.exports.deleteAnswer = (req, results) => {
             $and: [
                 { _id: req.params.answer_id },
                 {
-                    author: req.user.id
-                }
-            ]
+                    author: req.user.id,
+                },
+            ],
         })
         .then((result) => {
             if (result) {
                 results(
                     null,
-                    responseHandler.response(true, 200, "Delete answer successfully", null)
+                    responseHandler.response(
+                        true,
+                        200,
+                        "Delete answer successfully",
+                        null
+                    )
                 );
             } else {
-                results(responseHandler.response(false, 404, "Post Not found", null), null);
+                results(
+                    responseHandler.response(false, 404, "Post Not found", null),
+                    null
+                );
             }
         })
         .catch((err) => {
-            console.log(err)
-            results(responseHandler.response(false, 404, "Post Not found", null), null);
+            console.log(err);
+            results(
+                responseHandler.response(false, 404, "Post Not found", null),
+                null
+            );
         });
+};
+module.exports.deletePost = (req, results) => {
+    Post.findOneAndDelete({
+            $and: [
+                { _id: req.params.post_id },
+                {
+                    user_id: req.user.id,
+                },
+            ],
+        })
+        .lean()
+        .then((result) => {
+            if (result) {
+                let tagnames = result.tagname;
+                const promises = tagnames.map((tag) => {
+                    return Tags.findOneAndUpdate({ tagname: tag }, {
+                        $inc: {
+                            posts_count: -1,
+                        },
+                    });
+                });
+                Promise.all(promises)
+                    .then((result) => {
+                        if (result) {
+                            Answers.deleteMany({ post_id: req.params.post_id })
+                                .then((result) => {
+                                    if (result) {
+                                        results(
+                                            null,
+                                            responseHandler.response(
+                                                true,
+                                                200,
+                                                "Delete post successfully",
+                                                null
+                                            )
+                                        );
+                                    } else {
+                                        results(
+                                            responseHandler.response(
+                                                false,
+                                                404,
+                                                "Post Not found",
+                                                null
+                                            ),
+                                            null
+                                        );
+                                    }
+                                })
+                                .catch((err) => {});
+                        } else {
+                            results(
+                                responseHandler.response(false, 404, "Post Not found", null),
+                                null
+                            );
+                        }
+                    })
+                    .catch((err) => {});
+            } else {
+                results(
+                    responseHandler.response(false, 404, "Post Not found", null),
+                    null
+                );
+            }
+        })
+        .catch((err) => {
+            console.log(err);
+            results(
+                responseHandler.response(false, 404, "Post Not found", null),
+                null
+            );
+        });
+};
+module.exports.vote = (req, results) => {
+    try {
+        const user_id = req.user.id;
+        const score = req.params.action === 'upvote' ? 1 : req.params.action === 'downvote' ? -1 : 0;
+        Answers.updateOne({ $and: [{ _id: req.params.answer_id }, { "votes.user_id": user_id }] }, { $set: { "votes.$.vote": score } }).lean().then((aa) => {
+
+            if (aa.modifiedCount === 0 && aa.matchedCount === 0) {
+                console.log(aa);
+                Answers.updateOne({ _id: req.params.answer_id }, { $push: { votes: { user_id: user_id, vote: score } } }).then((result) => {
+                    results(
+                        null,
+                        responseHandler.response(
+                            true,
+                            200,
+                            "Thanks for the feedback!",
+                            null
+                        )
+                    );
+                })
+            } else {
+                results(
+                    null,
+                    responseHandler.response(
+                        true,
+                        200,
+                        "Thanks for the feedback!",
+                        null
+                    )
+                );
+            }
+        })
+    } catch (err) {
+        results(responseHandler.response(false, 500, "Server Error", null), null);
+    }
 }

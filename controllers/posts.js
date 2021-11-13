@@ -59,9 +59,10 @@ const getOnePost = (req, res) => {
             .json(responseHandler.response(true, 500, 'server error', null));
     }
 }
-const deletePost = (req, res) => {
+
+const votePost = (req, res) => {
     try {
-        Post.deletePost(req, (err, data) => {
+        Post.vote(req, (err, data) => {
             if (err) {
                 console.log(err);
                 return res.status(err.code).json(err);
@@ -79,5 +80,6 @@ module.exports = postController = {
     addPost,
     getPosts,
     getOnePost,
-    deletePost
+    votePost
+    // deletePost
 }

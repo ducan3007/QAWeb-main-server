@@ -4,8 +4,7 @@ const responseHandler = require("../utils/response");
 const fetchTagDesc = require("../utils/fetchTagDesc");
 const Comment = require("./comments");
 const Tags = require("./tags");
-const sizeof = require("object-sizeof");
-const Votes = require("./vote");
+const voteSchema = require("./vote");
 
 const postSchema = new Schema({
     title: {
@@ -31,10 +30,7 @@ const postSchema = new Schema({
         ref: "answers",
         required: false,
     }, ],
-    votes: {
-        type: Number,
-        default: 0,
-    },
+    votes: [voteSchema],
     views: {
         type: Number,
         default: 0,
@@ -56,7 +52,13 @@ postSchema.options.toJSON.transform = (doc, ret) => {
 const Post = (module.exports = mongoose.model("posts", postSchema));
 
 module.exports.createPost = (req, result) => {
-    const tagnames = req.body.tagname.toString().split(/[,]+/);
+    const tags = req.body.tagname.toString().split(/[,]+/);
+
+    let tagnames = tags.filter((tag, pos) => {
+        if (tag != "") {
+            return tags.indexOf(tag) == pos;
+        }
+    });
     try {
         const options = {
             upsert: true,
@@ -65,11 +67,17 @@ module.exports.createPost = (req, result) => {
         };
         const promises = tagnames.map(async(tag) => {
             try {
-                const tagfound = await Tags.findOne({ $and: [{ tagname: tag }, { description: { $exists: true } }] }, { _id: 1 });
+                const tagfound = await Tags.findOne({
+                    $and: [
+                        { tagname: encodeURIComponent(tag) },
+                        { description: { $exists: true } },
+                        { description: { $ne: "" } },
+                    ],
+                }, { _id: 1 });
                 if (tagfound) {
                     return;
                 } else {
-                    return fetchTagDesc.fetchTagDescription(tag);
+                    return fetchTagDesc.fetchTagDescription(encodeURIComponent(tag));
                 }
             } catch (err) {
                 console.log(err);
@@ -77,7 +85,8 @@ module.exports.createPost = (req, result) => {
         });
         Promise.all(promises).then(async(results) => {
             for (let i = 0; i < tagnames.length; i++) {
-                if (results[i] == null) {
+                tagnames[i] = tagnames[i];
+                if (results[i] === null) {
                     try {
                         await Tags.findOneAndUpdate({ tagname: tagnames[i] }, {
                                 $inc: {
@@ -116,7 +125,12 @@ module.exports.createPost = (req, result) => {
                 if (addPost) {
                     result(
                         null,
-                        responseHandler.response(true, 200, "Post Created", addPost._id)
+                        responseHandler.response(
+                            true,
+                            200,
+                            "Post Created successfully",
+                            addPost._id
+                        )
                     );
                 }
             } catch (err) {
@@ -127,8 +141,6 @@ module.exports.createPost = (req, result) => {
         result(responseHandler.response(false, 500, "Server Error", null), null);
     }
 };
-
-// Post_id : 6176d9fb047f6607d50b765e
 module.exports.addPostComment = (req, results) => {
     try {
         const comment = {
@@ -186,10 +198,68 @@ module.exports.getPostComments = (req, results) => {
 };
 
 module.exports.getPosts = (req, results) => {
+    // if (req.query.search != 'null' && req.query.search != undefined) {
+    //     let query = decodeURIComponent(req.query.search);
+    //     Post.aggregate([{
+    //             $search: {
+    //                 "index": "post_full_text_search",
+    //                 "text": {
+    //                     "query": query,
+    //                     "path": ["title", "body", "tagname"]
+    //                 }
+    //             }
+    //         },
+    //         {
+    //             $lookup: {
+    //                 from: "users",
+    //                 localField: "user_id",
+    //                 foreignField: "_id",
+    //                 as: "Author"
+    //             },
+
+    //         },
+    //         {
+    //             $project: {
+    //                 _id: 1,
+    //                 title: 1,
+    //                 user_id: 1,
+    //                 body: 1,
+    //                 tagname: 1,
+    //                 answers: 1,
+    //                 votes: 1,
+    //                 comments: 1,
+    //                 created_at: 1,
+    //                 views: 1,
+    //                 "Author._id": 1,
+    //                 "Author.username": 1,
+
+    //             }
+    //         }
+    //     ]).then((result) => {
+    //         result = result.map((doc) => {
+    //             const obj = {};
+    //             obj.id = doc._id;
+    //             obj.user_id = doc.user_id;
+    //             obj.username = doc.Author[0].username;
+    //             obj.title = doc.title;
+    //             obj.body = doc.body;
+    //             obj.tagname = doc.tagname;
+    //             obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
+    //             obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
+    //             obj.views = doc.views;
+    //             obj.created_at = doc.created_at;
+    //             return obj;
+    //         })
+    //         results(
+    //             null,
+    //             responseHandler.response(true, 200, "successfully", result))
+    //     });
+
+    // } else {
     Post.find()
         .lean()
         .populate("user_id", "username")
-        .populate("answers", "comments")
+        .populate("answers", "votes")
         .sort("-created_at")
         .lean()
         .then((result) => {
@@ -201,6 +271,7 @@ module.exports.getPosts = (req, results) => {
                 obj.title = doc.title;
                 obj.body = doc.body;
                 obj.tagname = doc.tagname;
+                obj.votes = doc.votes;
                 obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
                 obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
                 obj.views = doc.views;
@@ -209,7 +280,7 @@ module.exports.getPosts = (req, results) => {
             });
             if (req.params.tagname) {
                 result = result.filter((doc) => {
-                    return doc.tagname.includes(req.params.tagname);
+                    return doc.tagname.includes(decodeURIComponent(req.params.tagname));
                 });
             } else if (req.url.includes("top")) {
                 result = result.sort((a, b) => {
@@ -218,14 +289,22 @@ module.exports.getPosts = (req, results) => {
                         b.comment_count - a.comment_count;
                 });
             }
+            // if (result.length === 0) {
+            //     results(responseHandler.response(false, 400, "not found", null), null);
+            // } else{
             results(
                 null,
                 responseHandler.response(true, 200, "successfully", result)
             );
+            //}
         })
         .catch((err) => {
-            results(responseHandler.response(false, 400, "not found", null), null);
+            results(
+                responseHandler.response(false, 400, "Post not found", null),
+                null
+            );
         });
+    //}
 };
 module.exports.getOnePost = (req, results) => {
     const postId = req.params.post_id;
@@ -250,6 +329,7 @@ module.exports.getOnePost = (req, results) => {
             obj.tagname = doc.tagname;
             obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
             obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
+            obj.votes = doc.votes;
             obj.views = doc.views;
             obj.created_at = doc.created_at;
             results(null, responseHandler.response(true, 200, "successfully", obj));
@@ -276,6 +356,7 @@ module.exports.getUserPost = (req, results) => {
                     obj.title = doc.title;
                     obj.body = doc.body;
                     obj.tagname = doc.tagname;
+                    obj.votes = doc.votes;
                     obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
                     obj.comment_count =
                         doc.comments != undefined ? doc.comments.length : 0;
@@ -295,40 +376,7 @@ module.exports.getUserPost = (req, results) => {
         results(responseHandler.response(false, 500, "Server Error", null), null);
     }
 };
-module.exports.deletePost = (req, results) => {
-    Post.findOneAndDelete({
-                $and: [
-                    { _id: req.params.post_id },
-                    {
-                        user_id: req.user.id,
-                    },
-                ],
-            }
-            // , {
-            //     $pull: { _id: req.params.post_id },
-            // }
-        )
-        .then((result) => {
-            if (result) {
-                results(
-                    null,
-                    responseHandler.response(true, 200, "Delete post successfully", null)
-                );
-            } else {
-                results(
-                    responseHandler.response(false, 404, "Post Not found", null),
-                    null
-                );
-            }
-        })
-        .catch((err) => {
-            console.log(err);
-            results(
-                responseHandler.response(false, 404, "Post Not found", null),
-                null
-            );
-        });
-};
+
 module.exports.deletePostComment = (req, results) => {
     Post.findOneAndUpdate({
             $and: [
@@ -364,4 +412,59 @@ module.exports.deletePostComment = (req, results) => {
         .catch((err) => {
             results(responseHandler.response(false, 404, "Not found", null), null);
         });
+};
+module.exports.vote = (req, results) => {
+    try {
+        const user_id = req.user.id;
+        const score =
+            req.params.action === "upvote" ?
+            1 :
+            req.params.action === "downvote" ?
+            -1 :
+            0;
+        Post.updateOne({ $and: [{ _id: req.params.post_id }, { "votes.user_id": user_id }] }, { $set: { "votes.$.vote": score } })
+            .lean()
+            .then((aa) => {
+                if (aa.modifiedCount === 0 && aa.matchedCount === 0) {
+                    Post.updateOne({ _id: req.params.post_id }, { $push: { votes: { user_id: user_id, vote: score } } })
+                        .then((result) => {
+                            results(
+                                null,
+                                responseHandler.response(
+                                    true,
+                                    200,
+                                    "Thanks for the feedback!",
+                                    null
+                                )
+                            );
+                        })
+                        .catch((err) => {
+                            console.log(err);
+                            results(
+                                responseHandler.response(false, 500, "Server Error", null),
+                                null
+                            );
+                        });
+                } else {
+                    results(
+                        null,
+                        responseHandler.response(
+                            true,
+                            200,
+                            "Thanks for the feedback!",
+                            null
+                        )
+                    );
+                }
+            })
+            .catch((err) => {
+                console.log(err);
+                results(
+                    responseHandler.response(false, 500, "Server Error", null),
+                    null
+                );
+            });
+    } catch (err) {
+        results(responseHandler.response(false, 500, "Server Error", null), null);
+    }
 };

@@ -29,33 +29,32 @@ tagsModel.options.toJSON.transform = (doc, ret) => {
     delete obj.__v;
     return obj;
 };
-// tagsModel.virtual('id').get(function() {
-//     return this._id;
-// });
-// tagsModel.set('toJSON', {
-//     virtuals: true,
-//     transform: function(doc, ret) {
-//         delete ret._id;
-//         delete ret.__v;
-//     }
-// });
+
 
 const Tags = module.exports = mongoose.model('tags', tagsModel);
 
 module.exports.getAllTags = async(result) => {
-    const res = await Tags.find();
+    try {
+        const res = await Tags.find();
 
-    if (!res) {
-        result(responseHandler.response(false, 404, 'Tags not found', null));
+        if (!res) {
+            result(responseHandler.response(false, 404, 'Tags not found', null));
+        }
+        result(null, responseHandler.response(true, 200, 'Success', res));
+    } catch (err) {
+
     }
-    result(null, responseHandler.response(true, 200, 'Success', res));
 }
 
 module.exports.getOneTags = async(tagname, result) => {
-    const res = await Tags.findOne({ tagname: tagname });
+    try {
 
-    if (!res) {
-        result(responseHandler.response(false, 404, 'Tags not found', null));
+        const res = await Tags.findOne({ tagname: decodeURIComponent(tagname) });
+        if (!res) {
+            result(responseHandler.response(false, 404, 'Tags not found', null));
+        }
+        result(null, responseHandler.response(true, 200, 'Success', res));
+    } catch (err) {
+
     }
-    result(null, responseHandler.response(true, 200, 'Success', res));
 }
