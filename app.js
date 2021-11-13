@@ -25,7 +25,7 @@ app.use(morgan('dev'));
 app.use(compression());
 
 app.options('*', cors());
-app.use(cors({ origin: 'http://localhost:5000' }));
+app.use(cors({ origin: '*' }));
 
 app.use(helmet());
 app.use(express.urlencoded({ extended: true }));
