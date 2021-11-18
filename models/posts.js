@@ -50,7 +50,32 @@ postSchema.options.toJSON.transform = (doc, ret) => {
 };
 
 const Post = (module.exports = mongoose.model("posts", postSchema));
+const formatResult = (result) => {
+    return result.map((doc) => {
+        const obj = {};
+        obj.id = doc._id;
+        if (doc.user_id._id) {
+            obj.user_id = doc.user_id._id;
+        } else {
+            obj.user_id = doc.user_id;
+        }
 
+        if (doc.Author) {
+            obj.username = doc.Author[0].username;
+        } else {
+            obj.username = doc.user_id.username;
+        }
+        obj.title = doc.title;
+        obj.body = doc.body;
+        obj.tagname = doc.tagname;
+        obj.votes = doc.votes;
+        obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
+        obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
+        obj.views = doc.views;
+        obj.created_at = doc.created_at;
+        return obj;
+    });
+}
 module.exports.createPost = (req, result) => {
     const tags = req.body.tagname.toString().split(/[,]+/);
 
@@ -198,114 +223,111 @@ module.exports.getPostComments = (req, results) => {
 };
 
 module.exports.getPosts = (req, results) => {
-    // if (req.query.search != 'null' && req.query.search != undefined) {
-    //     let query = decodeURIComponent(req.query.search);
-    //     Post.aggregate([{
-    //             $search: {
-    //                 "index": "post_full_text_search",
-    //                 "text": {
-    //                     "query": query,
-    //                     "path": ["title", "body", "tagname"]
-    //                 }
-    //             }
-    //         },
-    //         {
-    //             $lookup: {
-    //                 from: "users",
-    //                 localField: "user_id",
-    //                 foreignField: "_id",
-    //                 as: "Author"
-    //             },
+        if (req.query.search != "null" && req.query.search != undefined) {
+            let query = decodeURIComponent(req.query.search);
 
-    //         },
-    //         {
-    //             $project: {
-    //                 _id: 1,
-    //                 title: 1,
-    //                 user_id: 1,
-    //                 body: 1,
-    //                 tagname: 1,
-    //                 answers: 1,
-    //                 votes: 1,
-    //                 comments: 1,
-    //                 created_at: 1,
-    //                 views: 1,
-    //                 "Author._id": 1,
-    //                 "Author.username": 1,
-
-    //             }
-    //         }
-    //     ]).then((result) => {
-    //         result = result.map((doc) => {
-    //             const obj = {};
-    //             obj.id = doc._id;
-    //             obj.user_id = doc.user_id;
-    //             obj.username = doc.Author[0].username;
-    //             obj.title = doc.title;
-    //             obj.body = doc.body;
-    //             obj.tagname = doc.tagname;
-    //             obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
-    //             obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
-    //             obj.views = doc.views;
-    //             obj.created_at = doc.created_at;
-    //             return obj;
-    //         })
-    //         results(
-    //             null,
-    //             responseHandler.response(true, 200, "successfully", result))
-    //     });
-
-    // } else {
-    Post.find()
-        .lean()
-        .populate("user_id", "username")
-        .populate("answers", "votes")
-        .sort("-created_at")
-        .lean()
-        .then((result) => {
-            result = result.map((doc) => {
-                const obj = {};
-                obj.id = doc._id;
-                obj.user_id = doc.user_id._id;
-                obj.username = doc.user_id.username;
-                obj.title = doc.title;
-                obj.body = doc.body;
-                obj.tagname = doc.tagname;
-                obj.votes = doc.votes;
-                obj.answer_count = doc.answers != undefined ? doc.answers.length : 0;
-                obj.comment_count = doc.comments != undefined ? doc.comments.length : 0;
-                obj.views = doc.views;
-                obj.created_at = doc.created_at;
-                return obj;
+            // regex is not allowed in free Atlas tier
+            Post.aggregate([{
+                    $search: {
+                        index: "post_full_textsearch",
+                        text: {
+                            query: query,
+                            path: ["title", "body", "tagname"],
+                        },
+                    },
+                },
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "user_id",
+                        foreignField: "_id",
+                        as: "Author",
+                    },
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        title: 1,
+                        user_id: 1,
+                        body: 1,
+                        tagname: 1,
+                        answers: 1,
+                        votes: 1,
+                        comments: 1,
+                        created_at: 1,
+                        views: 1,
+                        "Author._id": 1,
+                        "Author.username": 1,
+                    },
+                },
+                {
+                    $sort: {
+                        created_at: -1,
+                    },
+                },
+            ]).then((result) => {
+                result = formatResult(result);
+                results(
+                    null,
+                    responseHandler.response(true, 200, "successfully", result)
+                );
             });
-            if (req.params.tagname) {
-                result = result.filter((doc) => {
-                    return doc.tagname.includes(decodeURIComponent(req.params.tagname));
+        } else if (req.params.tagname) {
+            Post.find({ tagname: decodeURIComponent(req.params.tagname) })
+                .populate("user_id", "username")
+                .populate("answers", "votes")
+                .sort("-created_at")
+                .lean()
+                .then((result) => {
+                    result = formatResult(result);
+                    if (req.url.includes("top")) {
+                        result = result.sort((a, b) => {
+                            return b.answer_count - a.answer_count != 0 ?
+                                b.answer_count - a.answer_count :
+                                b.comment_count - a.comment_count;
+                        });
+                    }
+                    results(
+                        null,
+                        responseHandler.response(true, 200, "successfully", result)
+                    );
+                })
+                .catch((err) => {
+                    console.log(err);
+                    results(
+                        responseHandler.response(false, 400, "Post not found", null),
+                        null
+                    );
                 });
-            } else if (req.url.includes("top")) {
-                result = result.sort((a, b) => {
-                    return b.answer_count - a.answer_count != 0 ?
-                        b.answer_count - a.answer_count :
-                        b.comment_count - a.comment_count;
+        } else {
+            Post.find()
+                .populate("user_id", "username")
+                .populate("answers", "votes")
+                .sort("-created_at")
+                .lean()
+                .then((result) => {
+                    result = formatResult(result);
+                    if (req.url.includes("top")) {
+                        result = result.sort((a, b) => {
+                            return b.answer_count - a.answer_count != 0 ?
+                                b.answer_count - a.answer_count :
+                                b.comment_count - a.comment_count;
+                        });
+                    }
+                    results(
+                        null,
+                        responseHandler.response(true, 200, "successfully", result)
+                    );
+                })
+                .catch((err) => {
+                    console.log(err);
+                    results(
+                        responseHandler.response(false, 400, "Post not found", null),
+                        null
+                    );
                 });
-            }
-            // if (result.length === 0) {
-            //     results(responseHandler.response(false, 400, "not found", null), null);
-            // } else{
-            results(
-                null,
-                responseHandler.response(true, 200, "successfully", result)
-            );
-            //}
-        })
-        .catch((err) => {
-            results(
-                responseHandler.response(false, 400, "Post not found", null),
-                null
-            );
-        });
-    //}
-};
+        }
+    };
 module.exports.getOnePost = (req, results) => {
     const postId = req.params.post_id;
     Post.findOneAndUpdate({ _id: postId }, {
