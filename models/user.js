@@ -3,8 +3,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const responseHandler = require("../utils/response");
-const { validationResult } = require("express-validator");
-const { post } = require("./vote");
 const Post = require("./posts");
 const sizeof = require("object-sizeof");
 const Answer = require("./answers");
@@ -12,7 +10,7 @@ const Schema = mongoose.Schema;
 
 const userSchema = new Schema({
     username: { type: String, required: true, unique: true },
-    password: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
     email: { type: String, required: false },
     views: { type: Number, default: 0 },
     created_at: { type: Date, default: Date.now },
@@ -55,7 +53,7 @@ module.exports.register = async(newUser, result) => {
                     }
                     result(
                         null,
-                        responseHandler.response(true, 200, "User sigup successfully", {
+                        responseHandler.response(true, 200, "User signup successfully", {
                             token,
                         })
                     );
@@ -88,13 +86,12 @@ module.exports.login = async(user, result) => {
     try {
         const findUser = await Users.findOne({
             username: user.username,
-        });
+        }, { password: 1 });
         if (findUser) {
             const isMatch = await bcrypt.compare(
                 user.password,
                 findUser.password.toString()
             );
-
             if (!isMatch) {
                 result(
                     responseHandler.response(false, 400, "Incorrect password", null),
@@ -149,7 +146,7 @@ module.exports.getOneUser = async(id, results) => {
             Post.countDocuments({ user_id: id }).lean(),
             Answer.countDocuments({ author: id }).lean(),
             Post.aggregate([
-                { $project: { "comments.Author": 1, _id: 0 } },
+                { $project: { comments: 1, _id: 0 } },
                 { $unwind: "$comments" },
                 {
                     $match: {
@@ -161,7 +158,7 @@ module.exports.getOneUser = async(id, results) => {
                 },
             ]),
             Answer.aggregate([
-                { $project: { "comments.Author": 1, _id: 0 } },
+                { $project: { comments: 1, _id: 0 } },
                 { $unwind: "$comments" },
                 {
                     $match: {
@@ -179,17 +176,17 @@ module.exports.getOneUser = async(id, results) => {
                 { $group: { _id: "$tagname", count: { $sum: 1 } } },
             ]),
             Post.aggregate([
-                { $project:{votes:1,_id:0} },
-                { $unwind:"$votes"},
-                { $match: { "votes.user_id": mongoose.Types.ObjectId(id) } },
+                { $project: { votes: 1, user_id: 1, _id: 0 } },
+                { $unwind: "$votes" },
+                { $match: { "user_id": mongoose.Types.ObjectId(id) } },
                 { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
             ]),
             Answer.aggregate([
-                { $project:{votes:1,_id:0} },
-                { $unwind:"$votes"},
-                { $match: { "votes.user_id": mongoose.Types.ObjectId(id) } },
+                { $project: { votes: 1, author: 1, _id: 0 } },
+                { $unwind: "$votes" },
+                { $match: { "author": mongoose.Types.ObjectId(id) } },
                 { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
-            ]),
+            ])
         ]).then((result) => {
             result = JSON.parse(JSON.stringify(result));
             const user = {
@@ -244,15 +241,15 @@ module.exports.getAllUser = (results) => {
                 for (const a of result) {
                     await Promise.all([
                         Post.aggregate([
+                            { $project: { votes: 1, user_id: 1, _id: 0 } },
                             { $unwind: "$votes" },
-                            { $match: { user_id: mongoose.Types.ObjectId(a._id) } },
-                            { $project: { "votes.vote": 1, _id: 0 } },
+                            { $match: { "user_id": mongoose.Types.ObjectId(a._id) } },
                             { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
                         ]),
                         Answer.aggregate([
+                            { $project: { votes: 1, author: 1, _id: 0 } },
                             { $unwind: "$votes" },
-                            { $match: { author: mongoose.Types.ObjectId(a._id) } },
-                            { $project: { "votes.vote": 1, _id: 0 } },
+                            { $match: { "author": mongoose.Types.ObjectId(a._id) } },
                             { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
                         ]),
                     ]).then((result) => {
