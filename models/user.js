@@ -149,7 +149,7 @@ module.exports.getOneUser = async(id, results) => {
             Post.countDocuments({ user_id: id }).lean(),
             Answer.countDocuments({ author: id }).lean(),
             Post.aggregate([
-                { $project: { comments: 1, _id: 0 } },
+                { $project: { "comments.Author": 1, _id: 0 } },
                 { $unwind: "$comments" },
                 {
                     $match: {
@@ -161,7 +161,7 @@ module.exports.getOneUser = async(id, results) => {
                 },
             ]),
             Answer.aggregate([
-                { $project: { comments: 1, _id: 0 } },
+                { $project: { "comments.Author": 1, _id: 0 } },
                 { $unwind: "$comments" },
                 {
                     $match: {
@@ -179,15 +179,15 @@ module.exports.getOneUser = async(id, results) => {
                 { $group: { _id: "$tagname", count: { $sum: 1 } } },
             ]),
             Post.aggregate([
-                { $unwind: "$votes" },
-                { $match: { user_id: mongoose.Types.ObjectId(id) } },
-                { $project: { "votes.vote": 1, _id: 0 } },
+                { $project:{votes:1,_id:0} },
+                { $unwind:"$votes"},
+                { $match: { "votes.user_id": mongoose.Types.ObjectId(id) } },
                 { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
             ]),
             Answer.aggregate([
-                { $unwind: "$votes" },
-                { $match: { author: mongoose.Types.ObjectId(id) } },
-                { $project: { "votes.vote": 1, _id: 0 } },
+                { $project:{votes:1,_id:0} },
+                { $unwind:"$votes"},
+                { $match: { "votes.user_id": mongoose.Types.ObjectId(id) } },
                 { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
             ]),
         ]).then((result) => {
