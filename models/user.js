@@ -27,6 +27,14 @@ userSchema.options.toJSON.transform = (doc, ret) => {
 const Users = (module.exports = mongoose.model("users", userSchema));
 
 module.exports.register = async(newUser, result) => {
+    if (newUser.confirmPassword !== newUser.password) {
+        result(
+            responseHandler.response(false, 400, "Password and confirm password does not match", null),
+            null
+        );
+        return;
+    }
+    
     const salt = bcrypt.genSaltSync(10);
     newUser.password = await bcrypt.hash(newUser.password, salt);
     newUser.username = newUser.username.toLowerCase();
@@ -61,6 +69,7 @@ module.exports.register = async(newUser, result) => {
             );
         }
     } catch (err) {}
+    
 };
 
 module.exports.loadUser = (userId, result) => {
@@ -211,57 +220,63 @@ module.exports.getOneUser = async(id, results) => {
         results(responseHandler.response(false, 404, "Not found", null), null);
     }
 };
+
 module.exports.getAllUser = (results) => {
     try {
-        Users.aggregate([{
-                    $lookup: {
-                        from: "posts",
-                        localField: "_id",
-                        foreignField: "user_id",
-                        as: "post_list",
+        Promise.all([
+                Users.aggregate([{
+                        $lookup: {
+                            from: "posts",
+                            localField: "_id",
+                            foreignField: "user_id",
+                            as: "post_list",
+                        },
                     },
-                },
-                {
-                    $project: {
-                        _id: 1,
-                        username: 1,
-                        views: 1,
-                        created_at: 1,
-                        posts_count: {
-                            $cond: {
-                                if: { $isArray: "$post_list" },
-                                then: { $size: "$post_list" },
-                                else: "0",
+                    {
+                        $project: {
+                            _id: 1,
+                            username: 1,
+                            views: 1,
+                            created_at: 1,
+                            posts_count: {
+                                $cond: {
+                                    if: { $isArray: "$post_list" },
+                                    then: { $size: "$post_list" },
+                                    else: "0",
+                                },
                             },
                         },
                     },
-                },
+                ]),
+                Post.aggregate([
+                    { $project: { votes: 1, user_id: 1, _id: 0 } },
+                    { $unwind: "$votes" },
+                ]),
+                Answer.aggregate([
+                    { $project: { votes: 1, author: 1, _id: 0 } },
+                    { $unwind: "$votes" },
+                ]),
             ])
-            .then(async(result) => {
-                for (const a of result) {
-                    await Promise.all([
-                        Post.aggregate([
-                            { $project: { votes: 1, user_id: 1, _id: 0 } },
-                            { $unwind: "$votes" },
-                            { $match: { "user_id": mongoose.Types.ObjectId(a._id) } },
-                            { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
-                        ]),
-                        Answer.aggregate([
-                            { $project: { votes: 1, author: 1, _id: 0 } },
-                            { $unwind: "$votes" },
-                            { $match: { "author": mongoose.Types.ObjectId(a._id) } },
-                            { $group: { _id: null, votes: { $sum: "$votes.vote" } } },
-                        ]),
-                    ]).then((result) => {
-                        a.id = a._id;
-                        a.votes =
-                            (result[0][0] != undefined ? result[0][0].votes : 0) +
-                            (result[1][0] != undefined ? result[1][0].votes : 0);
+            .then((result) => {
+                const a = result[0].map((user) => {
+                    user.id = user._id;
+                    delete user._id;
+                    let ad = 0;
+                    for (let post of result[1]) {
+                        if (post.user_id.toString() == user.id.toString()) {
+                            ad += post.votes.vote;
+                        }
+                    }
+                    for (let answer of result[2]) {
+                        if (answer.author.toString() == user.id.toString()) {
+                            ad += answer.votes.vote;
+                        }
+                    }
+                    user.votes = ad;
+                    return user;
+                });
 
-                        delete a._id;
-                    });
-                }
-                results(null, responseHandler.response(true, 200, "Success", result));
+                results(null, responseHandler.response(true, 200, "Success", a));
             })
             .catch((err) => {
                 console.log(err);
